@@ -1,0 +1,54 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "smart-hostel-companion",
+          "appId": "1:944795404371:android:0b2e6caa171d3841659ea6",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "smart-hostel-companion",
+          "configurations": {
+            "android": "1:944795404371:android:0b2e6caa171d3841659ea6",
+            "ios": "1:944795404371:ios:48cefd65f7fce879659ea6",
+            "macos": "1:944795404371:ios:48cefd65f7fce879659ea6",
+            "web": "1:944795404371:web:9c24d76640062814659ea6",
+            "windows": "1:944795404371:web:7f8179a910502707659ea6"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ],
+      "source": "functions"
+    },
+    {
+      "source": "sos_notifications",
+      "codebase": "sos_notifications",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}

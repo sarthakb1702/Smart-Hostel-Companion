@@ -1,0 +1,42 @@
+name: hostel_safety_app
+description: "A Smart Hostel Companion with Real-Time SOS Alerts"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  
+  # --- Core Firebase ---
+  firebase_core: ^3.10.1
+  firebase_auth: ^5.5.0
+  cloud_firestore: ^5.6.2
+  
+  # --- Push Notifications & Messaging ---
+  firebase_messaging: ^15.2.1
+  flutter_local_notifications: ^18.0.1
+  
+  # --- SOS Helper Libraries (Modern FCM v1) ---
+  http: ^1.2.0
+  googleapis_auth: ^1.6.0
+  
+  # --- Utilities ---
+  geolocator: ^13.0.1
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  # 🚨 IMPORTANT: Indentation is critical here. 
+  # Ensure there are 2 spaces before 'assets' and 4 spaces before the '-'
+  assets:
+    - assets/service-account.json

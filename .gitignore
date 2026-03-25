@@ -1,0 +1,56 @@
+# --- CRITICAL SECRETS (PRIVATE FIREBASE KEYS) ---
+assets/service-account.json
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+
+# --- PROJECT DOCUMENTATION (PRIVATE) ---
+# Exclude your backend logic and schemas from GitHub
+backend_schema/
+backend_contract/
+
+# --- Miscellaneous ---
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# --- IntelliJ/Android Studio related ---
+*.iml
+*.ipr
+*.iws
+.idea/
+/android/.gradle/
+/android/local.properties
+
+# --- VS Code related ---
+.vscode/
+
+# --- Flutter/Dart/Pub related ---
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# --- Symbolication/Obfuscation ---
+app.*.symbols
+app.*.map.json
+
+# --- Android Build Artifacts ---
+/android/app/debug
+/android/app/profile
+/android/app/release
