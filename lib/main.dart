@@ -25,7 +25,6 @@ const AndroidNotificationChannel channel = AndroidNotificationChannel(
   playSound: true,
 );
 
-// 3. Initialize the Plugin instance
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
@@ -36,15 +35,12 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 4. Set the background message handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // 5. Initialize the Local Notifications Plugin for Android
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
 
-  // 6. Set Foreground notification options (to show alerts while app is open)
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
     alert: true,
     badge: true,
@@ -53,8 +49,44 @@ void main() async {
 
   runApp(const MyApp());
 }
-class MyApp extends StatelessWidget {
+
+// Change MyApp to StatefulWidget so it can handle notification listeners
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  
+  @override
+  void initState() {
+    super.initState();
+    _setupInteractedMessages();
+  }
+
+  // 🚀 Logic to handle notification clicks
+  Future<void> _setupInteractedMessages() async {
+    // 1. Handles clicks when the app is COMPLETELY CLOSED (Terminated)
+    RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      _handleMessageClick(initialMessage);
+    }
+
+    // 2. Handles clicks when the app is in the BACKGROUND
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageClick);
+  }
+
+  void _handleMessageClick(RemoteMessage message) {
+    // This is where you tell the app to go to the Alerts screen
+    // For now, we will use the route, but you can pass arguments too
+    if (message.data['type'] == 'alert' || message.notification != null) {
+      // If user is logged in, navigate to RoleHandler
+      // Inside RoleHandler/IssueListScreen, we will handle the tab switching
+      Navigator.pushNamed(context, '/home'); 
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,29 +97,20 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
-      
-      // 3. Instead of a hardcoded initialRoute, we use a 'home' listener
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          // While Firebase is checking the local storage (memory)
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
           }
-
-          // If a user session is found in memory, go straight to RoleHandler
           if (snapshot.hasData) {
             return const RoleHandler();
           }
-
-          // If no session exists, show the Login Screen
           return const LoginScreen();
         },
       ),
-
-      // 4. Routes remain for manual navigation (like Navigator.pushNamed)
       routes: {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),

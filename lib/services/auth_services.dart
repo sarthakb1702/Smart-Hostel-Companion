@@ -21,7 +21,7 @@ class AuthService {
     try {
       // 1. Check if the invite exists
       var inviteDoc = await _inviteService.checkInvite(email);
-      
+
       if (inviteDoc == null || !inviteDoc.exists) {
         throw "No valid invitation found for this email.";
       }
@@ -51,7 +51,6 @@ class AuthService {
 
       // 5. Mark the invite as used
       await inviteDoc.reference.update({'isUsed': true});
-
     } on FirebaseAuthException catch (e) {
       throw e.message ?? "Authentication failed.";
     } catch (e) {
@@ -69,6 +68,7 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+
   // Function to Register a Student and Create their Profile
   Future<void> signUpStudent({
     required String email,
@@ -77,47 +77,51 @@ class AuthService {
     required String hostel,
   }) async {
     try {
-      // 1. Create the Auth Account (Email/Password)
-      UserCredential credential = await FirebaseAuth.instance
+      // 1. Capture the 'UserCredential' 🚨 THIS IS THE KEY
+      UserCredential result = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
 
-      // 2. Create the Firestore Profile with default values
-      await FirebaseFirestore.instance.collection('users').doc(credential.user!.uid).set({
-        'uid': credential.user!.uid,
-        'name': name,
-        'email': email,
-        'role': 'student',
-        'hostelType': hostel,
-        'roomNo': 'Not Assigned', // Warden will assign this later
-        'isActive': true,          // ✅ Default to TRUE for new users
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      
+      // 2. Get the actual user object from that result
+      User? user = result.user;
+
+      // 3. Use 'user!.uid' to create the profile document
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'name': name,
+          'email': email,
+          'role': 'student',
+          'hostelType': hostel,
+          'roomNo': 'Pending',
+          'isProfileComplete': false, // 🚩 The new flag we added!
+          'isActive': true,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
     } catch (e) {
-      // This will "throw" the error back to the Signup Screen to show a SnackBar
-      rethrow; 
+      rethrow;
     }
   }
+
   Future<void> updateWardenToken() async {
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-  // Request permission (Required for Android 13+ and iOS)
-  NotificationSettings settings = await messaging.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
+    // Request permission (Required for Android 13+ and iOS)
+    NotificationSettings settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
-  if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-    String? token = await messaging.getToken();
-    
-    if (token != null) {
-      String uid = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'fcmToken': token,
-      });
-      print("🚀 Warden Token Saved: $token");
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      String? token = await messaging.getToken();
+
+      if (token != null) {
+        String uid = FirebaseAuth.instance.currentUser!.uid;
+        await FirebaseFirestore.instance.collection('users').doc(uid).update({
+          'fcmToken': token,
+        });
+        print("🚀 Warden Token Saved: $token");
+      }
     }
   }
-}
 }

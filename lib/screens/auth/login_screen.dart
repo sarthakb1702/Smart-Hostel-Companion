@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // 🚨 Added
+import '../../services/notification_service.dart'; // 🚨 Ensure this import is correct
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,6 +36,25 @@ class _LoginScreenState extends State<LoginScreen> {
         await FirebaseAuth.instance.signOut();
         throw "Access Denied: Your account has been deactivated.";
       }
+
+      // --- 🚨 NEW NOTIFICATION LOGIC START 🚨 ---
+      
+      // 1. Get the device's unique FCM Token
+      String? fcmToken = await FirebaseMessaging.instance.getToken();
+      
+      // 2. Save token to Firestore for private notifications (Leave/Maintenance)
+      if (fcmToken != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(creds.user!.uid)
+            .update({'fcmToken': fcmToken});
+      }
+
+      // 3. Subscribe to the specific Hostel Topic for broadcast alerts
+      String hostelType = userDoc.get('hostelType') ?? "boys"; // Default to boys if empty
+      await NotificationService.subscribeToHostel(hostelType);
+
+      // --- 🚨 NEW NOTIFICATION LOGIC END 🚨 ---
 
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
