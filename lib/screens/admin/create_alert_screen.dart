@@ -3,17 +3,44 @@ import '../../services/alert_service.dart';
 
 class CreateAlertScreen extends StatefulWidget {
   final String hostelType; // Pass 'boys' or 'girls' from Warden's profile
-  const CreateAlertScreen({super.key, required this.hostelType});
+  final String? alertId;
+  final String? existingTitle;
+  final String? existingDescription;
+  final bool? existingIsUrgent;
+
+  const CreateAlertScreen({
+    super.key, 
+    required this.hostelType,
+    this.alertId,
+    this.existingTitle,
+    this.existingDescription,
+    this.existingIsUrgent,
+  });
 
   @override
   State<CreateAlertScreen> createState() => _CreateAlertScreenState();
 }
 
 class _CreateAlertScreenState extends State<CreateAlertScreen> {
-  final _titleController = TextEditingController();
-  final _descController = TextEditingController();
-  bool _isUrgent = false;
+  late TextEditingController _titleController;
+  late TextEditingController _descController;
+  late bool _isUrgent;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.existingTitle ?? "");
+    _descController = TextEditingController(text: widget.existingDescription ?? "");
+    _isUrgent = widget.existingIsUrgent ?? false;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
 
   void _handleSendAlert() async {
     if (_titleController.text.isEmpty || _descController.text.isEmpty) {
@@ -27,17 +54,27 @@ class _CreateAlertScreenState extends State<CreateAlertScreen> {
 
     try {
       // This calls the AlertService which handles both Firestore and FCM
-      await AlertService().sendAlert(
-        title: _titleController.text.trim(),
-        description: _descController.text.trim(),
-        isUrgent: _isUrgent,
-        hostelType: widget.hostelType,
-      );
+      if (widget.alertId != null) {
+        await AlertService().updateAlert(
+          alertId: widget.alertId!,
+          title: _titleController.text.trim(),
+          description: _descController.text.trim(),
+          isUrgent: _isUrgent,
+          hostelType: widget.hostelType,
+        );
+      } else {
+        await AlertService().sendAlert(
+          title: _titleController.text.trim(),
+          description: _descController.text.trim(),
+          isUrgent: _isUrgent,
+          hostelType: widget.hostelType,
+        );
+      }
 
       if (mounted) {
         Navigator.pop(context); // Go back to dashboard
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Alert broadcasted successfully!")),
+          SnackBar(content: Text(widget.alertId != null ? "Alert updated successfully!" : "Alert broadcasted successfully!")),
         );
       }
     } catch (e) {
@@ -54,7 +91,7 @@ class _CreateAlertScreenState extends State<CreateAlertScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("New Hostel Alert")),
+      appBar: AppBar(title: Text(widget.alertId != null ? "Edit Hostel Alert" : "New Hostel Alert")),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -82,7 +119,7 @@ class _CreateAlertScreenState extends State<CreateAlertScreen> {
               title: const Text("Mark as Urgent"),
               subtitle: const Text("Adds a red badge and urgent prefix"),
               value: _isUrgent,
-              activeColor: Colors.red,
+              activeThumbColor: Colors.red,
               onChanged: (val) => setState(() => _isUrgent = val),
             ),
             const Spacer(),
@@ -97,7 +134,7 @@ class _CreateAlertScreenState extends State<CreateAlertScreen> {
                 ),
                 child: _isLoading 
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("BROADCAST TO STUDENTS", style: TextStyle(color: Colors.white, fontSize: 16)),
+                    : Text(widget.alertId != null ? "UPDATE ALERT" : "BROADCAST TO STUDENTS", style: const TextStyle(color: Colors.white, fontSize: 16)),
               ),
             ),
           ],

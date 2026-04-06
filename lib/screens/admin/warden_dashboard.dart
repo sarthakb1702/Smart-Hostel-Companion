@@ -6,18 +6,21 @@ import 'leave_management_screen.dart';
 import '../issues/issue_list_screen.dart';
 import 'send_invite_screen.dart';
 import 'sos_history_screen.dart';
-import '../admin/create_alert_screen.dart'; // Ensure this path is correct
-
+import 'warden_alerts_management_screen.dart';
+import 'warden_alerts_management_screen.dart';
+import 'warden_parcel_entry_screen.dart';
+import 'warden_housekeeping_screen.dart';
 class WardenDashboard extends StatelessWidget {
-  final String role, hostelType;
-  const WardenDashboard({super.key, required this.role, required this.hostelType});
+  final String? role;
+  final String? hostelType;
+  const WardenDashboard({super.key, this.role, this.hostelType});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: Text("${hostelType.toUpperCase()} WARDEN PANEL"),
+        title: Text("${(hostelType ?? 'Unknown').toUpperCase()} WARDEN PANEL"),
         elevation: 0,
         actions: [
           IconButton(
@@ -36,7 +39,7 @@ class WardenDashboard extends StatelessWidget {
           children: [
             // 👋 Welcome Section
             Text(
-              "Welcome, ${role.toUpperCase()}",
+              "Welcome, ${(role ?? 'Warden').toUpperCase()}",
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.indigo),
             ),
             const Text("Hostel Management Overview", style: TextStyle(color: Colors.grey)),
@@ -60,21 +63,30 @@ class WardenDashboard extends StatelessWidget {
                     IssueListScreen(role: role, hostelType: hostelType, name: "Warden")),
                   
                   _navCard(context, "Leave Requests", Icons.assignment_turned_in, Colors.green, 
-                    LeaveManagementScreen(hostelType: hostelType)),
+                    LeaveManagementScreen(hostelType: hostelType ?? 'boys')),
                   
                   _navCard(context, "Student List", Icons.groups_rounded, Colors.indigo, 
-                    UserManagementScreen(role: role, hostelType: hostelType)),
+                    UserManagementScreen(role: role ?? 'warden', hostelType: hostelType ?? 'boys')),
                   
                   _navCard(context, "Add Student", Icons.person_add_alt_1, Colors.blue, 
-                    SendInviteScreen(role: role, hostelType: hostelType)),
+                    SendInviteScreen(role: role ?? 'warden', hostelType: hostelType ?? 'boys')),
 
                   // 🚨 SOS HISTORY CARD
                   _navCard(context, "SOS Logs", Icons.history_toggle_off, Colors.red, 
-                    SosHistoryScreen(hostelType: hostelType)),
+                    SosHistoryScreen(hostelType: hostelType ?? 'boys')),
 
-                  // 📢 NEW: BROADCAST ALERTS CARD
+                  // 📢 BROADCAST ALERTS CARD
                   _navCard(context, "Hostel Alerts", Icons.campaign_rounded, Colors.purple, 
-                    CreateAlertScreen(hostelType: hostelType)),
+                    WardenAlertsManagementScreen(hostelType: hostelType ?? 'boys')),
+
+                  // 📦 PARCEL MANAGEMENT CARD
+                  // 📦 PARCEL MANAGEMENT CARD
+                  _navCard(context, "Parcels", Icons.inventory_2_rounded, Colors.brown, 
+                    WardenParcelEntryScreen(hostelType: hostelType ?? 'boys')),
+                    
+                  // ✨ HOUSEKEEPING ANALYTICS CARD
+                  _navCard(context, "Housekeeping", Icons.cleaning_services_rounded, Colors.teal, 
+                    WardenHousekeepingScreen(hostelType: hostelType ?? 'boys')),
                 ],
               ),
             ),
@@ -89,7 +101,7 @@ class WardenDashboard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('issues')
-          .where('hostelType', isEqualTo: hostelType)
+          .where('hostelType', isEqualTo: hostelType ?? 'boys')
           .where('status', isEqualTo: 'pending')
           .snapshots(),
       builder: (context, snapshot) {

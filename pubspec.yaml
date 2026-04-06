@@ -28,8 +28,8 @@ dependencies:
   # --- Utilities ---
   geolocator: ^13.0.1
   url_launcher: ^6.3.1
-  firebase_storage: ^12.4.10
   image_picker: ^1.2.1
+  flutter_rating_bar: ^4.0.1
 
 dev_dependencies:
   flutter_test:

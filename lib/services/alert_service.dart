@@ -36,4 +36,31 @@ class AlertService {
         .orderBy('createdAt', descending: true)
         .snapshots();
   }
+
+  // Update existing alert
+  Future<void> updateAlert({
+    required String alertId,
+    required String title,
+    required String description,
+    required bool isUrgent,
+    required String hostelType,
+  }) async {
+    await _db.collection('hostel_alerts').doc(alertId).update({
+      'title': title,
+      'description': description,
+      'isUrgent': isUrgent,
+    });
+
+    // Trigger updated notification
+    await NotificationService.sendTopicNotification(
+      topic: "${hostelType.toLowerCase()}_hostel",
+      title: isUrgent ? "🚨 UPDATED URGENT: $title" : "📢 Updated Notice: $title",
+      body: description,
+    );
+  }
+
+  // Delete alert
+  Future<void> deleteAlert(String alertId) async {
+    await _db.collection('hostel_alerts').doc(alertId).delete();
+  }
 }

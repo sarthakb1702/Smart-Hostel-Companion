@@ -48,12 +48,12 @@ class _SendInviteScreenState extends State<SendInviteScreen> {
             TextField(controller: _emailController, decoration: const InputDecoration(labelText: "Email")),
             if (widget.role == 'head_admin') ...[
               DropdownButtonFormField<String>(
-                value: _selectedRole,
+                initialValue: _selectedRole,
                 items: ['student', 'warden'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
                 onChanged: (val) => setState(() => _selectedRole = val!),
               ),
               DropdownButtonFormField<String>(
-                value: _selectedHostel,
+                initialValue: _selectedHostel,
                 items: ['boys', 'girls'].map((h) => DropdownMenuItem(value: h, child: Text(h.toUpperCase()))).toList(),
                 onChanged: (val) => setState(() => _selectedHostel = val!),
               ),

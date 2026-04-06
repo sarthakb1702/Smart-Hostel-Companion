@@ -1,8 +1,7 @@
-import 'dart:typed_data';
+import 'dart:convert'; 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 class StudentProfileTab extends StatelessWidget {
@@ -23,36 +22,40 @@ class StudentProfileTab extends StatelessWidget {
         }
 
         var data = snapshot.data!.data() as Map<String, dynamic>;
+        String? base64Image = data['profileImageBase64'];
 
-        // 🚨 Note: Removed Scaffold here because IssueListScreen provides it.
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
             Center(
               child: CircleAvatar(
-                radius: 50,
-                backgroundColor: Colors.indigo,
-                backgroundImage: data['profileImageUrl'] != null ? NetworkImage(data['profileImageUrl']) : null,
-                child: data['profileImageUrl'] == null ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                radius: 55,
+                backgroundColor: Colors.indigo.shade100,
+                backgroundImage: base64Image != null 
+                    ? MemoryImage(base64Decode(base64Image)) 
+                    : null,
+                child: base64Image == null 
+                    ? const Icon(Icons.person, size: 55, color: Colors.indigo) 
+                    : null,
               ),
             ),
             const SizedBox(height: 20),
             
-            // Profile Information Groups
-            _buildSectionHeader("Hostel Info"),
-            _profileItem("Name", data['name'] ?? "N/A", Icons.person_outline),
-            _profileItem("Room No", data['roomNo'] ?? "Not Assigned", Icons.meeting_room_outlined),
+            _buildSectionHeader("Hostel & Academic"),
+            _profileItem("Name", _safeStr(data['name']), Icons.person_outline),
+            _profileItem("Room No", _safeStr(data['roomNo'], defaultStr: "Not Assigned"), Icons.meeting_room_outlined),
+            _profileItem("Academic Year", _safeStr(data['year']), Icons.school),
+            _profileItem("Hostel Status", _safeStr(data['hostelType'], defaultStr: "N/A").toUpperCase(), Icons.apartment),
+
+            const SizedBox(height: 20),
             
-            const SizedBox(height: 10),
-            _buildSectionHeader("Emergency Contacts"),
-            _profileItem("Personal Phone", data['phone'] ?? "N/A", Icons.phone_android),
-            _profileItem("Parent Phone", data['parentPhone'] ?? "N/A", Icons.family_restroom),
-            _profileItem("Local Guardian", data['localGuardianPhone'] ?? "None", Icons.person_search),
-            _profileItem("Blood Group", data['bloodGroup'] ?? "N/A", Icons.bloodtype, iconColor: Colors.red),
+            _buildSectionHeader("Contact Information"),
+            _profileItem("Personal Contact", _safeStr(data['phone']), Icons.phone_android),
+            _profileItem("Emergency Contact", _safeStr(data['parentPhone']), Icons.family_restroom),
+            _profileItem("Local Guardian", _safeStr(data['localGuardianPhone']), Icons.person_search),
             
             const SizedBox(height: 30),
             
-            // Action Buttons
             ElevatedButton.icon(
               onPressed: () => _showEditDialog(context, data),
               icon: const Icon(Icons.edit),
@@ -61,13 +64,8 @@ class StudentProfileTab extends StatelessWidget {
                 backgroundColor: Colors.indigo,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextButton.icon(
-              onPressed: () => FirebaseAuth.instance.signOut(),
-              icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text("Logout", style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -75,7 +73,12 @@ class StudentProfileTab extends StatelessWidget {
     );
   }
 
-  // --- UI Helper Widgets ---
+  String _safeStr(dynamic value, {String defaultStr = "Not Provided"}) {
+    if (value == null) return defaultStr;
+    String str = value.toString().trim();
+    if (str.isEmpty) return defaultStr;
+    return str;
+  }
 
   Widget _buildSectionHeader(String title) {
     return Padding(
@@ -87,96 +90,79 @@ class StudentProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _profileItem(String label, String value, IconData icon, {Color iconColor = Colors.indigo}) {
+  Widget _profileItem(String label, String value, IconData icon) {
     return Card(
       elevation: 0,
       margin: const EdgeInsets.symmetric(vertical: 4),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade200)),
       child: ListTile(
-        leading: Icon(icon, color: iconColor),
+        leading: Icon(icon, color: Colors.indigo),
         title: Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
         subtitle: Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
       ),
     );
   }
 
-  // --- Edit Logic ---
-
   void _showEditDialog(BuildContext context, Map<String, dynamic> data) {
-    // 1. Initialize Controllers with existing data
     final nameController = TextEditingController(text: data['name']);
     final phoneController = TextEditingController(text: data['phone']);
     final parentPhoneController = TextEditingController(text: data['parentPhone']);
     final guardianController = TextEditingController(text: data['localGuardianPhone']);
-    final deptController = TextEditingController(text: data['department']);
-    
-    // Dropdown values
-    String? tempBloodGroup = data['bloodGroup'];
-    String? tempYear = data['year'];
-
-    final List<String> bloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
-    final List<String> years = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-
-    bool isUploadingImage = false;
+    final yearController = TextEditingController(text: data['year']);
+    bool isProcessing = false;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder( // Use StatefulBuilder for dropdowns in Dialogs
+      builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Edit Profile Details"),
+          title: const Text("Edit Profile"),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 📸 Profile Image Updater Header
                 Center(
                   child: Stack(
                     alignment: Alignment.bottomRight,
                     children: [
                       CircleAvatar(
                         radius: 40,
-                        backgroundColor: Colors.indigo.shade100,
-                        backgroundImage: data['profileImageUrl'] != null ? NetworkImage(data['profileImageUrl']) : null,
-                        child: data['profileImageUrl'] == null ? const Icon(Icons.person, size: 40, color: Colors.indigo) : null,
+                        backgroundColor: Colors.indigo.shade50,
+                        backgroundImage: data['profileImageBase64'] != null 
+                            ? MemoryImage(base64Decode(data['profileImageBase64'])) 
+                            : null,
+                        child: data['profileImageBase64'] == null 
+                            ? const Icon(Icons.person, size: 40, color: Colors.indigo) : null,
                       ),
-                      if (isUploadingImage)
-                        const Positioned.fill(
-                          child: CircularProgressIndicator(),
-                        )
+                      if (isProcessing)
+                        const Positioned.fill(child: CircularProgressIndicator())
                       else
                         InkWell(
                           onTap: () async {
-                            final uid = FirebaseAuth.instance.currentUser?.uid;
-                            if (uid == null) return;
+                            final ImagePicker picker = ImagePicker();
+                            final XFile? pickedFile = await picker.pickImage(
+                              source: ImageSource.gallery, 
+                              maxWidth: 200, 
+                              maxHeight: 200, 
+                              imageQuality: 30
+                            );
                             
-                            final picker = ImagePicker();
-                            final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
-                            if (image == null) return;
+                            if (pickedFile == null) return;
 
-                            setDialogState(() => isUploadingImage = true);
+                            setDialogState(() => isProcessing = true);
                             try {
-                              Reference storageRef = FirebaseStorage.instance.ref().child('profile_images/$uid.jpg');
-                              Uint8List bytes = await image.readAsBytes();
-                              TaskSnapshot snapshot = await storageRef.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-                              String downloadUrl = await snapshot.ref.getDownloadURL();
+                              final bytes = await pickedFile.readAsBytes();
+                              String base64String = base64Encode(bytes);
 
+                              final uid = FirebaseAuth.instance.currentUser?.uid;
                               await FirebaseFirestore.instance.collection('users').doc(uid).update({
-                                'profileImageUrl': downloadUrl,
+                                'profileImageBase64': base64String,
                               });
-                              // update local data map so the UI updates
-                              data['profileImageUrl'] = downloadUrl;
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile image updated successfully!')));
-                              }
+
+                              setDialogState(() => data['profileImageBase64'] = base64String);
                             } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error uploading image: $e')));
-                              }
+                              debugPrint("Error: $e");
                             } finally {
-                              setDialogState(() => isUploadingImage = false);
+                              setDialogState(() => isProcessing = false);
                             }
                           },
                           child: const CircleAvatar(
@@ -189,45 +175,15 @@ class StudentProfileTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 15),
-
-                // 🔒 READ ONLY FIELD
-                TextField(
-                  enabled: false,
-                  decoration: InputDecoration(
-                    labelText: "Room Number (Contact Warden to change)",
-                    hintText: data['roomNo'] ?? "Not Assigned",
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                
-                // ✏️ EDITABLE FIELDS
-                _buildEditField(nameController, "Full Name", Icons.person),
-                _buildEditField(phoneController, "Your Phone", Icons.phone_android),
-                _buildEditField(parentPhoneController, "Parent Phone", Icons.family_restroom),
-                _buildEditField(guardianController, "Local Guardian", Icons.person_search),
-                _buildEditField(deptController, "Department", Icons.school),
-                
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline))),
                 const SizedBox(height: 10),
-                
-                // Blood Group Dropdown
-                DropdownButtonFormField<String>(
-                  value: tempBloodGroup,
-                  decoration: const InputDecoration(labelText: "Blood Group", border: OutlineInputBorder()),
-                  items: bloodGroups.map((bg) => DropdownMenuItem(value: bg, child: Text(bg))).toList(),
-                  onChanged: (val) => setDialogState(() => tempBloodGroup = val),
-                ),
-                const SizedBox(height: 15),
-                
-                // Year Dropdown
-                DropdownButtonFormField<String>(
-                  value: tempYear,
-                  decoration: const InputDecoration(labelText: "Year", border: OutlineInputBorder()),
-                  items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
-                  onChanged: (val) => setDialogState(() => tempYear = val),
-                ),
+                TextField(controller: yearController, decoration: const InputDecoration(labelText: "Academic Year", border: OutlineInputBorder(), prefixIcon: Icon(Icons.school))),
+                const SizedBox(height: 10),
+                TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "Personal Contact", border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_android))),
+                const SizedBox(height: 10),
+                TextField(controller: parentPhoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "Emergency Contact", border: OutlineInputBorder(), prefixIcon: Icon(Icons.family_restroom))),
+                const SizedBox(height: 10),
+                TextField(controller: guardianController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "Local Guardian", border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_search))),
               ],
             ),
           ),
@@ -238,33 +194,16 @@ class StudentProfileTab extends StatelessWidget {
                 final uid = FirebaseAuth.instance.currentUser?.uid;
                 await FirebaseFirestore.instance.collection('users').doc(uid).update({
                   'name': nameController.text.trim(),
+                  'year': yearController.text.trim(),
                   'phone': phoneController.text.trim(),
                   'parentPhone': parentPhoneController.text.trim(),
                   'localGuardianPhone': guardianController.text.trim(),
-                  'department': deptController.text.trim(),
-                  'bloodGroup': tempBloodGroup,
-                  'year': tempYear,
                 });
                 if (context.mounted) Navigator.pop(context);
               },
-              child: const Text("UPDATE PROFILE"),
+              child: const Text("UPDATE"),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  // Helper for dialog text fields
-  Widget _buildEditField(TextEditingController controller, String label, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, size: 20),
-          border: const OutlineInputBorder(),
         ),
       ),
     );

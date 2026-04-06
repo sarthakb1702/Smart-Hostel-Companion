@@ -232,7 +232,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             ),
                             Switch(
                               value: active,
-                              activeColor: Colors.green,
+                              activeThumbColor: Colors.green,
                               onChanged: (val) => _toggleAccess(uid, active),
                             ),
                           ],

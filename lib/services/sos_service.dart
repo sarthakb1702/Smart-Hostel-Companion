@@ -11,6 +11,7 @@ class SosService {
     required String name,
     required String hostel,
     String? description,
+    required String recipientName,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -33,6 +34,7 @@ class SosService {
       'hostelType': hostel,
       'roomNo': assignedRoom,
       'description': description ?? "No additional info",
+      'recipientName': recipientName,
       'status': 'active',
       'createdAt': FieldValue.serverTimestamp(),
       'location': {

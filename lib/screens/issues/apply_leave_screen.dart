@@ -26,7 +26,11 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
     );
     if (picked != null) {
       setState(() {
-        if (isStart) _startDate = picked; else _endDate = picked;
+        if (isStart) {
+          _startDate = picked;
+        } else {
+          _endDate = picked;
+        }
       });
     }
   }
