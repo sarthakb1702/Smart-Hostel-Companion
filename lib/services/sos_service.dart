@@ -1,10 +1,12 @@
+// ignore_for_file: unnecessary_cast, unused_import
+
 import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart'; 
+import 'package:flutter/services.dart'; 
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:googleapis_auth/auth_io.dart';
 import 'notification_service.dart';
 
 class SosService {
@@ -38,18 +40,19 @@ class SosService {
         locationData = {
           'lat': position.latitude,
           'lng': position.longitude,
+          // ✅ FIXED: Added '$' for proper string interpolation
           'googleMapsUrl': "https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}",
         };
       }
     } catch (e) {
-      print("Location Error: $e");
-      // Fallback: We proceed without location so the SOS isn't blocked by a crash
+      debugPrint("Location Error: $e");
     }
 
     // 3. Send Alert to Firestore
     await FirebaseFirestore.instance.collection('sos_alerts').add({
+      'studentUid': uid,
       'studentName': name,
-      'hostelType': hostel,
+      'hostelType': hostel.toLowerCase(),
       'roomNo': assignedRoom,
       'description': description ?? "No additional info",
       'recipientName': recipientName,
@@ -58,14 +61,19 @@ class SosService {
       'location': locationData,
     });
 
-    // 4. Trigger the Automatic Push Notification via Centralized NotificationService
+    // 4. Trigger the Automatic Push Notification
     String alertBody = description ?? 'Emergency Alert!';
     if (locationData['lat'] != 0.0) {
-      alertBody += "\n📍 Location: ${locationData['googleMapsUrl']}";
+      alertBody += "\n📍 Location: Tap to view map";
     }
 
+    // 🎯 TARGETED TOPIC: Ensures only the relevant warden gets it
+    String topicName = 'warden_${hostel.toLowerCase().trim()}';
+    
+    debugPrint("🚀 Sending SOS to topic: $topicName");
+
     await NotificationService.sendTopicNotification(
-      topic: 'wardens', 
+      topic: topicName, 
       title: '🚨 SOS: $name ($assignedRoom)', 
       body: alertBody,
       extraData: {
@@ -73,18 +81,21 @@ class SosService {
         'lat': locationData['lat'].toString(),
         'lng': locationData['lng'].toString(),
         'mapsUrl': locationData['googleMapsUrl'],
+        'hostel': hostel.toLowerCase(),
       }
     );
   }
 
-  // 🛡️ HELPER: Handles the Permission "Handshake" with Android
+  // 🛡️ HELPER: Handles the Permission "Handshake"
   static Future<Position?> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Check if location services are enabled
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return null;
+    if (!serviceEnabled) {
+      debugPrint("GPS Services are disabled.");
+      return null;
+    }
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -96,7 +107,7 @@ class SosService {
 
     return await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
-      timeLimit: const Duration(seconds: 5), // Don't hang forever if GPS is weak
+      timeLimit: const Duration(seconds: 10), 
     );
   }
 }

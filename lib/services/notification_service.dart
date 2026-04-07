@@ -20,11 +20,14 @@ class NotificationService {
   static Future<void> subscribeToHostel(String hostelType, {String? role}) async {
     if (kIsWeb) return; 
     try {
-      String hostelTopic = "${hostelType.toLowerCase()}_hostel";
-      await FirebaseMessaging.instance.subscribeToTopic(hostelTopic);
+      String type = hostelType.toLowerCase().trim();
+      await FirebaseMessaging.instance.subscribeToTopic("${type}_hostel");
+
       if (role == 'warden' || role == 'head_admin') {
+        await FirebaseMessaging.instance.subscribeToTopic("warden_$type");
         await FirebaseMessaging.instance.subscribeToTopic('wardens');
       }
+      
       if (role == 'head_admin') {
         await FirebaseMessaging.instance.subscribeToTopic('head_admins');
       }
@@ -41,7 +44,7 @@ class NotificationService {
   }) async {
     try {
       final String accessToken = await _getAccessToken();
-      await http.post(
+      final response = await http.post(
         Uri.parse('https://fcm.googleapis.com/v1/projects/$_projectId/messages:send'),
         headers: {
           'Content-Type': 'application/json',
@@ -49,7 +52,7 @@ class NotificationService {
         },
         body: jsonEncode({
           'message': {
-            'topic': topic, 
+            'topic': topic.toLowerCase().trim(), 
             'notification': {'title': title, 'body': body},
             'data': {
               'click_action': 'FLUTTER_NOTIFICATION_CLICK',
@@ -57,27 +60,64 @@ class NotificationService {
               ...?extraData,
             },
             'android': {
-              'priority': 'high',
+              'priority': 'high', // ✅ Correct place for high priority
               'notification': {
                 'channel_id': 'high_importance_channel',
                 'click_action': 'FLUTTER_NOTIFICATION_CLICK',
                 'color': (extraData?['type'] == 'sos_alert') ? '#FF0000' : '#3F51B5', 
+                'sound': 'default',
+                // ❌ 'priority' removed from here to fix 400 error
+              },
+            },
+            'apns': {
+              'headers': {
+                'apns-priority': '10',
+              },
+              'payload': {
+                'aps': {
+                  'content-available': 1,
+                  'alert': {'title': title, 'body': body},
+                  'sound': 'default',
+                },
               },
             },
           },
         }),
       );
+      
+      debugPrint("FCM Response: ${response.statusCode}");
+      if (response.statusCode != 200) {
+        debugPrint("FCM Error Detail: ${response.body}");
+      }
     } catch (e) {
       debugPrint("Notification Error: $e");
     }
   }
 
-  static Future<void> sendGatePassNotification(String name, String destination) async {
+  static Future<void> sendGatePassNotification(String name, String destination, String hostelType) async {
     return sendTopicNotification(
-      topic: 'wardens',
+      topic: 'warden_${hostelType.toLowerCase().trim()}', 
       title: "🚪 New Gate Pass: $name",
       body: "Leaving for $destination.",
       extraData: {'type': 'gate_pass'}
+    );
+  }
+
+  static Future<void> sendSOSNotification(String name, String room, String hostelType) async {
+    return sendTopicNotification(
+      topic: 'warden_${hostelType.toLowerCase().trim()}',
+      title: "🚨 EMERGENCY SOS: $name",
+      body: "Help needed in Room $room!",
+      extraData: {'type': 'sos_alert'}
+    );
+  }
+
+  static Future<void> sendHousekeepingNotification(String hostelType, String description) async {
+    return sendTopicNotification(
+      topic: '${hostelType.toLowerCase().trim()}_hostel',
+      title: "🧹 Housekeeping Active",
+      body: description,
+      extraData: {'type': 'housekeeping_alert'}
     );
   }
 
@@ -101,6 +141,7 @@ class NotificationService {
             'notification': {'title': title, 'body': body},
             'data': {'click_action': 'FLUTTER_NOTIFICATION_CLICK', 'type': type},
             'android': {
+              'priority': 'high',
               'notification': {
                 'channel_id': 'high_importance_channel',
                 'click_action': 'FLUTTER_NOTIFICATION_CLICK',

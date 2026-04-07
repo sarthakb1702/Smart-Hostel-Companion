@@ -1,6 +1,9 @@
+// ignore_for_file: unused_local_variable
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+// ignore: unused_import
 import '../issues/issue_list_screen.dart';
 import '../auth/complete_profile_screen.dart'; 
 import '../admin/warden_dashboard.dart'; 

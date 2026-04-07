@@ -10,6 +10,9 @@ class SosHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 🛡️ Admin Check for UI elements
+    final bool isAuthorizedStaff = role == 'warden' || role == 'head_admin';
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -20,14 +23,21 @@ class SosHistoryScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: (() {
           Query q = FirebaseFirestore.instance.collection('sos_alerts');
+          
+          // 🛡️ DATA ISOLATION: 
+          // If not Head Admin, only show alerts for this specific building
           if (role != 'head_admin') {
-            q = q.where('hostelType', isEqualTo: hostelType);
+            q = q.where('hostelType', isEqualTo: hostelType.toLowerCase().trim());
           }
+          
           return q.orderBy('createdAt', descending: true).snapshots();
         })(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return _buildEmptyState();
@@ -37,22 +47,34 @@ class SosHistoryScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
-              var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+              var doc = snapshot.data!.docs[index];
+              var data = doc.data() as Map<String, dynamic>;
               String status = data['status'] ?? 'active';
               DateTime time = (data['createdAt'] as Timestamp? ?? Timestamp.now()).toDate();
 
+              bool isActive = status == 'active';
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: isActive ? 4 : 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: isActive ? Colors.red.shade100 : Colors.grey.shade200),
+                ),
                 child: ExpansionTile(
-                  leading: Icon(
-                    status == 'active' ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-                    color: status == 'active' ? Colors.red : Colors.green,
-                    size: 30,
+                  leading: CircleAvatar(
+                    backgroundColor: isActive ? Colors.red.shade50 : Colors.green.shade50,
+                    child: Icon(
+                      isActive ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                      color: isActive ? Colors.red : Colors.green,
+                    ),
                   ),
                   title: Text(
                     data['studentName'] ?? "Unknown Student",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isActive ? Colors.red.shade900 : Colors.black87,
+                    ),
                   ),
                   subtitle: Text(
                     "${DateFormat('dd MMM, hh:mm a').format(time)} • Room ${data['roomNo'] ?? 'N/A'}",
@@ -66,42 +88,62 @@ class SosHistoryScreen extends StatelessWidget {
                         children: [
                           _detailRow("Description", data['description'] ?? "No details provided"),
                           const SizedBox(height: 10),
+                          _detailRow("Hostel Section", (data['hostelType'] ?? 'N/A').toString().toUpperCase()),
+                          const SizedBox(height: 10),
                           _detailRow("Status", status.toUpperCase(), 
-                              color: status == 'active' ? Colors.red : Colors.green),
-                          if (status == 'active') ...[
+                              color: isActive ? Colors.red : Colors.green),
+                          
+                          // 🚨 ACTION BUTTONS: Only visible to Warden/Admin
+                          if (isActive && isAuthorizedStaff) ...[
                             const SizedBox(height: 15),
                             Row(
                               children: [
-                                // 📍 MAP BUTTON
-                                if (data['location'] != null && data['location']['googleMapsUrl'] != null && data['location']['lat'] != 0.0)
+                                // 📍 TRACK BUTTON
+                                if (data['location'] != null && data['location']['lat'] != 0.0)
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red, 
+                                        foregroundColor: Colors.white,
+                                      ),
                                       onPressed: () async {
-                                        final url = Uri.parse(data['location']['googleMapsUrl']);
+                                        final urlString = data['location']['googleMapsUrl'] ?? "";
+                                        final url = Uri.parse(urlString);
                                         if (await canLaunchUrl(url)) {
                                           await launchUrl(url, mode: LaunchMode.externalApplication);
                                         }
                                       },
                                       icon: const Icon(Icons.location_on),
-                                      label: const Text("VIEW ON MAP"),
+                                      label: const Text("TRACK"),
                                     ),
                                   ),
                                 if (data['location'] != null && data['location']['lat'] != 0.0)
                                   const SizedBox(width: 8),
 
-                                // ✅ RESOLVE BUTTON
+                                // ✅ RESOLVE BUTTON (Only for Staff)
                                 Expanded(
                                   child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                                    onPressed: () => _resolveAlert(snapshot.data!.docs[index].id),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green, 
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () => _resolveAlert(doc.id),
                                     icon: const Icon(Icons.check),
                                     label: const Text("MARK SAFE"),
                                   ),
                                 ),
                               ],
                             ),
-                          ]
+                          ],
+                          // Message for students if they open an active alert
+                          if (isActive && !isAuthorizedStaff)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                "🚨 This alert is active. Authorities have been notified.",
+                                style: TextStyle(color: Colors.red, fontStyle: FontStyle.italic, fontSize: 12),
+                              ),
+                            ),
                         ],
                       ),
                     )
@@ -129,7 +171,7 @@ class SosHistoryScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
-        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color)),
+        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
       ],
     );
   }
@@ -141,7 +183,10 @@ class SosHistoryScreen extends StatelessWidget {
         children: [
           Icon(Icons.shield_outlined, size: 80, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          const Text("No emergency alerts recorded.", style: TextStyle(color: Colors.grey)),
+          Text(
+            "No active alerts for ${(hostelType).toUpperCase()} Hostel.", 
+            style: const TextStyle(color: Colors.grey),
+          ),
         ],
       ),
     );

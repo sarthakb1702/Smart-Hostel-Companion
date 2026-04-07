@@ -1,3 +1,5 @@
+// ignore_for_file: unused_import, unused_local_variable
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';

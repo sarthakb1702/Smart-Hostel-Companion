@@ -1,9 +1,37 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../services/notification_service.dart';
 
 class HousekeepingService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // 📡 Stream for Students: Gets the latest active cleaning event
+  Stream<QuerySnapshot> getLatestEventStream(String hostelType) {
+    return _db
+        .collection('housekeeping_events')
+        .where('hostelType', isEqualTo: hostelType.toLowerCase())
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .snapshots();
+  }
+
+  // 📝 For Students: Submit rating and optional comment
+  Future<void> submitFeedback({
+    required String eventId,
+    required String uid,
+    required int roomRating,
+    required int bathroomRating,
+    String? comment,
+  }) async {
+    await _db.collection('housekeeping_events').doc(eventId).update({
+      'ratings.$uid': {
+        'room': roomRating,
+        'bathroom': bathroomRating,
+        'comment': comment ?? "",
+        'timestamp': FieldValue.serverTimestamp(),
+      }
+    });
+  }
+
+  // 🚀 For Wardens: Start a new cleaning event
   Future<void> startCleaningEvent({
     required String hostelType,
     required String description,
@@ -12,57 +40,20 @@ class HousekeepingService {
       'hostelType': hostelType.toLowerCase(),
       'description': description,
       'status': 'active',
-      'cleaningDate': FieldValue.serverTimestamp(),
-      'ratings': {}, 
+      'createdAt': FieldValue.serverTimestamp(),
+      'ratings': {},
     });
-
-    await NotificationService.sendTopicNotification(
-      topic: "${hostelType.toLowerCase()}_hostel",
-      title: "✨ Cleaning Completed!",
-      body: "Please rate today's housekeeping on your dashboard.",
-    );
   }
 
-  Future<void> submitFeedback({
-    required String eventId,
-    required String uid,
-    required int roomRating,
-    required int bathroomRating,
-  }) async {
-    double averageRating = (roomRating + bathroomRating) / 2.0;
-
-    await _db.collection('housekeeping_events').doc(eventId).set({
-      'ratings': {
-        uid: {
-          'roomRating': roomRating,
-          'bathroomRating': bathroomRating,
-          'average': averageRating,
-          'timestamp': DateTime.now(), // Use DateTime.now() since nested ServerTimestamps in maps can sometimes act up if heavily modified
-        }
-      }
-    }, SetOptions(merge: true));
-  }
-
-  Stream<QuerySnapshot> getActiveEventsStream(String hostelType) {
-    return _db.collection('housekeeping_events')
-        .where('hostelType', isEqualTo: hostelType.toLowerCase())
-        .where('status', isEqualTo: 'active')
-        .snapshots();
-  }
-
-  Stream<QuerySnapshot> getLatestEventStream(String hostelType) {
-    return _db.collection('housekeeping_events')
-        .where('hostelType', isEqualTo: hostelType.toLowerCase())
-        .orderBy('cleaningDate', descending: true)
-        .limit(1)
-        .snapshots();
-  }
-
-  Stream<QuerySnapshot> getCompletedCleaningsStream(String hostelType, {String? role}) {
-    Query query = _db.collection('housekeeping_events');
+  // 📊 For Wardens: Get all completed cleaning sessions for analytics
+  Stream<QuerySnapshot> getCompletedCleaningsStream(String hostelType, {required String? role}) {
+    Query q = _db.collection('housekeeping_events');
+    
+    // Filter by hostel unless it's a global admin
     if (role != 'head_admin') {
-      query = query.where('hostelType', isEqualTo: hostelType.toLowerCase());
+      q = q.where('hostelType', isEqualTo: hostelType.toLowerCase());
     }
-    return query.orderBy('cleaningDate', descending: true).snapshots();
+    
+    return q.orderBy('createdAt', descending: true).snapshots();
   }
 }

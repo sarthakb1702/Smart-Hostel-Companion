@@ -53,6 +53,7 @@ class _GatePassScreenState extends State<GatePassScreen> {
       await NotificationService.sendGatePassNotification(
         widget.userName,
         _destinationController.text.trim(),
+        widget.hostelType,
       );
 
       if (mounted) {
