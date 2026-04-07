@@ -5,7 +5,8 @@ import 'create_alert_screen.dart';
 
 class WardenAlertsManagementScreen extends StatelessWidget {
   final String hostelType;
-  const WardenAlertsManagementScreen({super.key, required this.hostelType});
+  final String? role;
+  const WardenAlertsManagementScreen({super.key, required this.hostelType, this.role});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +29,7 @@ class WardenAlertsManagementScreen extends StatelessWidget {
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: AlertService().getAlertsStream(hostelType),
+        stream: AlertService().getAlertsStream(hostelType, role: role),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

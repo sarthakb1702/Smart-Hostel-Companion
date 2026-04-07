@@ -5,7 +5,8 @@ import '../../services/housekeeping_service.dart';
 
 class WardenHousekeepingScreen extends StatefulWidget {
   final String hostelType;
-  const WardenHousekeepingScreen({super.key, required this.hostelType});
+  final String? role;
+  const WardenHousekeepingScreen({super.key, required this.hostelType, this.role});
 
   @override
   State<WardenHousekeepingScreen> createState() => _WardenHousekeepingScreenState();
@@ -98,7 +99,7 @@ class _WardenHousekeepingScreenState extends State<WardenHousekeepingScreen> {
         label: const Text("Start Event", style: TextStyle(color: Colors.white)),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: _service.getCompletedCleaningsStream(widget.hostelType),
+        stream: _service.getCompletedCleaningsStream(widget.hostelType, role: widget.role),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {

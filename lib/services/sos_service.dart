@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'package:flutter/services.dart'; // Required for rootBundle
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:googleapis_auth/auth_io.dart'; // Required for OAuth2
+import 'package:googleapis_auth/auth_io.dart';
+import 'notification_service.dart';
 
 class SosService {
   static Future<void> triggerSos({
@@ -21,14 +22,31 @@ class SosService {
         .collection('users')
         .doc(uid)
         .get();
-    final assignedRoom = userDoc.data()?['roomNo'] ?? "Unassigned";
+    final data = userDoc.data() as Map<String, dynamic>?;
+    final assignedRoom = data?['roomNo'] ?? "Unassigned";
 
-    // 2. Get GPS Location
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
+    // 🛡️ 2. SAFE GPS LOCATION FETCHING
+    Map<String, dynamic> locationData = {
+      'lat': 0.0,
+      'lng': 0.0,
+      'googleMapsUrl': "Location Not Available",
+    };
 
-    // 3. Send Alert to Firestore (For the Warden's Web/Mobile List)
+    try {
+      Position? position = await _determinePosition();
+      if (position != null) {
+        locationData = {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'googleMapsUrl': "https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}",
+        };
+      }
+    } catch (e) {
+      print("Location Error: $e");
+      // Fallback: We proceed without location so the SOS isn't blocked by a crash
+    }
+
+    // 3. Send Alert to Firestore
     await FirebaseFirestore.instance.collection('sos_alerts').add({
       'studentName': name,
       'hostelType': hostel,
@@ -37,86 +55,48 @@ class SosService {
       'recipientName': recipientName,
       'status': 'active',
       'createdAt': FieldValue.serverTimestamp(),
-      'location': {
-        'lat': position.latitude,
-        'lng': position.longitude,
-        'googleMapsUrl': "https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}",
-      },
+      'location': locationData,
     });
 
-    // 4. Trigger the Automatic Push Notification
-    await _sendPushNotificationToWarden(hostel, name,description);
-  }
-
-  static Future<void> _sendPushNotificationToWarden(String hostel, String studentName, String? description) async {
-  var wardens = await FirebaseFirestore.instance
-      .collection('users')
-      .where('role', isEqualTo: 'warden')
-      .where('hostelType', isEqualTo: hostel)
-      .get();
-
-  for (var doc in wardens.docs) {
-    String? token = doc.data()['fcmToken'];
-    if (token != null) {
-      // 🚨 Pass the description here
-      await _sendHttpRequest(token, studentName, hostel, description);
+    // 4. Trigger the Automatic Push Notification via Centralized NotificationService
+    String alertBody = description ?? 'Emergency Alert!';
+    if (locationData['lat'] != 0.0) {
+      alertBody += "\n📍 Location: ${locationData['googleMapsUrl']}";
     }
-  }
-}
 
-  // --- MODERN FCM HTTP v1 LOGIC ---
-
-  static Future<String> _getAccessToken() async {
-    // This reads the JSON file you put in your assets folder
-    final String response = await rootBundle.loadString('assets/service-account.json');
-    final data = json.decode(response);
-
-    final credentials = ServiceAccountCredentials.fromJson(data);
-    final scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
-
-    final client = await clientViaServiceAccount(credentials, scopes);
-    return client.credentials.accessToken.data;
-  }
-
-  static Future<void> _sendHttpRequest(String token, String studentName, String hostel, String? description) async {
-  try {
-    final String accessToken = await _getAccessToken();
-    const String projectId = 'smart-hostel-companion';
-
-    final String alertBody = (description != null && description.isNotEmpty) 
-        ? "HELP: $description" 
-        : "Emergency SOS triggered! Check location.";
-
-    // ignore: unused_local_variable
-    final response = await http.post(
-      Uri.parse('https://fcm.googleapis.com/v1/projects/$projectId/messages:send'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-      body: jsonEncode({
-        'message': {
-          'token': token,
-          'notification': {
-            'title': '🚨 SOS: $studentName',
-            'body': alertBody,
-          },
-          'android': {
-            'priority': 'high',
-            'notification': {
-              'channel_id': 'high_importance_channel', // 🚨 Must match your main.dart
-              'click_action': 'FLUTTER_NOTIFICATION_CLICK',
-              'sound': 'default',
-              'default_vibrate_timings': false, // 🚨 Disable default to use ours
-              'vibrate_timings': ["0s", "1s", "0.5s", "1s", "0.5s", "1s"], // Pulse pattern
-              'color': '#FF0000', // Red icon for emergency
-            },
-          },
-        },
-      }),
+    await NotificationService.sendTopicNotification(
+      topic: 'wardens', 
+      title: '🚨 SOS: $name ($assignedRoom)', 
+      body: alertBody,
+      extraData: {
+        'type': 'sos_alert',
+        'lat': locationData['lat'].toString(),
+        'lng': locationData['lng'].toString(),
+        'mapsUrl': locationData['googleMapsUrl'],
+      }
     );
-  } catch (e) {
-    print("Vibration Error: $e");
   }
-}
+
+  // 🛡️ HELPER: Handles the Permission "Handshake" with Android
+  static Future<Position?> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Check if location services are enabled
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return null;
+    }
+
+    if (permission == LocationPermission.deniedForever) return null;
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 5), // Don't hang forever if GPS is weak
+    );
+  }
 }

@@ -29,12 +29,12 @@ class AlertService {
   }
 
   // Stream for the UI list
-  Stream<QuerySnapshot> getAlertsStream(String hostelType) {
-    return _db
-        .collection('hostel_alerts')
-        .where('hostelType', isEqualTo: hostelType.toLowerCase())
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+  Stream<QuerySnapshot> getAlertsStream(String hostelType, {String? role}) {
+    Query query = _db.collection('hostel_alerts');
+    if (role != 'head_admin') {
+      query = query.where('hostelType', isEqualTo: hostelType.toLowerCase());
+    }
+    return query.orderBy('createdAt', descending: true).snapshots();
   }
 
   // Update existing alert

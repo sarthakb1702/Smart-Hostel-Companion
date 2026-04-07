@@ -18,8 +18,8 @@ class HousekeepingService {
 
     await NotificationService.sendTopicNotification(
       topic: "${hostelType.toLowerCase()}_hostel",
-      title: "✨ Cleaning Complete!",
-      body: "Cleaning is complete! Please rate today's service in your dashboard.",
+      title: "✨ Cleaning Completed!",
+      body: "Please rate today's housekeeping on your dashboard.",
     );
   }
 
@@ -58,10 +58,11 @@ class HousekeepingService {
         .snapshots();
   }
 
-  Stream<QuerySnapshot> getCompletedCleaningsStream(String hostelType) {
-    return _db.collection('housekeeping_events')
-        .where('hostelType', isEqualTo: hostelType.toLowerCase())
-        .orderBy('cleaningDate', descending: true)
-        .snapshots();
+  Stream<QuerySnapshot> getCompletedCleaningsStream(String hostelType, {String? role}) {
+    Query query = _db.collection('housekeeping_events');
+    if (role != 'head_admin') {
+      query = query.where('hostelType', isEqualTo: hostelType.toLowerCase());
+    }
+    return query.orderBy('cleaningDate', descending: true).snapshots();
   }
 }

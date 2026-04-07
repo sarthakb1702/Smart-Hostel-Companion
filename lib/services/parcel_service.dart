@@ -29,8 +29,8 @@ class ParcelService {
     if (fcmToken != null) {
       await NotificationService.sendPrivateNotification(
         token: fcmToken,
-        title: "📦 Parcel Received",
-        body: "Hi $recipientName, a new parcel has been received for you at the Warden office.",
+        title: "📦 New Parcel Arrived!",
+        body: "Please collect it from the Warden office.",
         type: "parcel_update",
       );
     }
@@ -43,11 +43,11 @@ class ParcelService {
     });
   }
 
-  Stream<QuerySnapshot> getWardenParcelsStream(String hostelType, {String status = 'pending'}) {
-    Query query = _db
-        .collection('parcels')
-        .where('hostelType', isEqualTo: hostelType.toLowerCase())
-        .where('status', isEqualTo: status);
+  Stream<QuerySnapshot> getWardenParcelsStream(String hostelType, {String status = 'pending', String? role}) {
+    Query query = _db.collection('parcels').where('status', isEqualTo: status);
+    if (role != 'head_admin') {
+      query = query.where('hostelType', isEqualTo: hostelType.toLowerCase());
+    }
         
     if (status == 'collected') {
       // For History tab, order by collected time

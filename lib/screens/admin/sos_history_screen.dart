@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SosHistoryScreen extends StatelessWidget {
   final String hostelType;
-  const SosHistoryScreen({super.key, required this.hostelType});
+  final String? role;
+  const SosHistoryScreen({super.key, required this.hostelType, this.role});
 
   @override
   Widget build(BuildContext context) {
@@ -16,11 +18,13 @@ class SosHistoryScreen extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('sos_alerts')
-            .where('hostelType', isEqualTo: hostelType)
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
+        stream: (() {
+          Query q = FirebaseFirestore.instance.collection('sos_alerts');
+          if (role != 'head_admin') {
+            q = q.where('hostelType', isEqualTo: hostelType);
+          }
+          return q.orderBy('createdAt', descending: true).snapshots();
+        })(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -66,14 +70,37 @@ class SosHistoryScreen extends StatelessWidget {
                               color: status == 'active' ? Colors.red : Colors.green),
                           if (status == 'active') ...[
                             const SizedBox(height: 15),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                                onPressed: () => _resolveAlert(snapshot.data!.docs[index].id),
-                                child: const Text("MARK AS RESOLVED / SAFE"),
-                              ),
-                            )
+                            Row(
+                              children: [
+                                // 📍 MAP BUTTON
+                                if (data['location'] != null && data['location']['googleMapsUrl'] != null && data['location']['lat'] != 0.0)
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                      onPressed: () async {
+                                        final url = Uri.parse(data['location']['googleMapsUrl']);
+                                        if (await canLaunchUrl(url)) {
+                                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                                        }
+                                      },
+                                      icon: const Icon(Icons.location_on),
+                                      label: const Text("VIEW ON MAP"),
+                                    ),
+                                  ),
+                                if (data['location'] != null && data['location']['lat'] != 0.0)
+                                  const SizedBox(width: 8),
+
+                                // ✅ RESOLVE BUTTON
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                    onPressed: () => _resolveAlert(snapshot.data!.docs[index].id),
+                                    icon: const Icon(Icons.check),
+                                    label: const Text("MARK SAFE"),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ]
                         ],
                       ),

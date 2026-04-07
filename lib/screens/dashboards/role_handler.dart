@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../issues/issue_list_screen.dart';
 import '../auth/complete_profile_screen.dart'; 
 import '../admin/warden_dashboard.dart'; 
+import '../student/student_dashboard.dart';
+import '../../services/notification_service.dart';
 
 class RoleHandler extends StatelessWidget {
   const RoleHandler({super.key});
@@ -39,7 +41,7 @@ class RoleHandler extends StatelessWidget {
 
         // 🛡️ 4. EXTRACT USER DETAILS
         String role = userData['role'] ?? 'student';
-        String hostelType = userData['hostelType'] ?? 'boys';
+        String hostelType = userData.containsKey('hostelType') ? userData['hostelType'] : 'girls';
         String name = userData['name'] ?? 'User';
 
         // 🛡️ 5. STUDENT ROUTING (With Profile Completion Check)
@@ -49,16 +51,18 @@ class RoleHandler extends StatelessWidget {
             return const CompleteProfileScreen();
           }
           
-          // Student Home (Tabs: Issues, Leaves, Profile)
-          return IssueListScreen(
-            role: role,
-            hostelType: hostelType,
-            name: name,
-          );
+          // 🔔 Subscribe to notifications
+          NotificationService.subscribeToHostel(hostelType, role: role);
+          
+          // Student Home (Dashboard with Quick Actions)
+          return const StudentDashboard();
         } 
 
         // 🚀 6. STAFF ROUTING (Warden / Head Admin)
-        // Staff go to the Grid Dashboard with Stats and SOS Logs
+        // 🔔 Subscribe staff to role-specific topics
+        NotificationService.subscribeToHostel(hostelType, role: role);
+
+        // staff go to the Grid Dashboard with Stats and SOS Logs
         return WardenDashboard(
           role: role,
           hostelType: hostelType,

@@ -10,6 +10,7 @@ import 'warden_alerts_management_screen.dart';
 import 'warden_alerts_management_screen.dart';
 import 'warden_parcel_entry_screen.dart';
 import 'warden_housekeeping_screen.dart';
+import 'gate_pass_history_screen.dart';
 class WardenDashboard extends StatelessWidget {
   final String? role;
   final String? hostelType;
@@ -20,7 +21,7 @@ class WardenDashboard extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: Text("${(hostelType ?? 'Unknown').toUpperCase()} WARDEN PANEL"),
+        title: Text(role == 'head_admin' ? "HEAD ADMIN PANEL" : "${(hostelType ?? 'Unknown').toUpperCase()} WARDEN PANEL"),
         elevation: 0,
         actions: [
           IconButton(
@@ -63,7 +64,7 @@ class WardenDashboard extends StatelessWidget {
                     IssueListScreen(role: role, hostelType: hostelType, name: "Warden")),
                   
                   _navCard(context, "Leave Requests", Icons.assignment_turned_in, Colors.green, 
-                    LeaveManagementScreen(hostelType: hostelType ?? 'boys')),
+                    LeaveManagementScreen(hostelType: hostelType ?? 'boys', role: role)),
                   
                   _navCard(context, "Student List", Icons.groups_rounded, Colors.indigo, 
                     UserManagementScreen(role: role ?? 'warden', hostelType: hostelType ?? 'boys')),
@@ -73,20 +74,23 @@ class WardenDashboard extends StatelessWidget {
 
                   // 🚨 SOS HISTORY CARD
                   _navCard(context, "SOS Logs", Icons.history_toggle_off, Colors.red, 
-                    SosHistoryScreen(hostelType: hostelType ?? 'boys')),
+                    SosHistoryScreen(hostelType: hostelType ?? 'boys', role: role)),
 
                   // 📢 BROADCAST ALERTS CARD
                   _navCard(context, "Hostel Alerts", Icons.campaign_rounded, Colors.purple, 
-                    WardenAlertsManagementScreen(hostelType: hostelType ?? 'boys')),
+                    WardenAlertsManagementScreen(hostelType: hostelType ?? 'boys', role: role)),
 
                   // 📦 PARCEL MANAGEMENT CARD
-                  // 📦 PARCEL MANAGEMENT CARD
                   _navCard(context, "Parcels", Icons.inventory_2_rounded, Colors.brown, 
-                    WardenParcelEntryScreen(hostelType: hostelType ?? 'boys')),
+                    WardenParcelEntryScreen(hostelType: hostelType ?? 'boys', role: role)),
                     
                   // ✨ HOUSEKEEPING ANALYTICS CARD
                   _navCard(context, "Housekeeping", Icons.cleaning_services_rounded, Colors.teal, 
-                    WardenHousekeepingScreen(hostelType: hostelType ?? 'boys')),
+                    WardenHousekeepingScreen(hostelType: hostelType ?? 'boys', role: role)),
+
+                  // 🚪 GATE PASS HISTORY
+                  _navCard(context, "Gate Passes", Icons.sensor_door_outlined, Colors.pink, 
+                    GatePassHistoryScreen(hostelType: hostelType ?? 'boys', role: role ?? 'warden')),
                 ],
               ),
             ),

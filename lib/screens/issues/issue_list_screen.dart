@@ -142,16 +142,27 @@ class _IssueListScreenState extends State<IssueListScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              SosService.triggerSos(
-                name: widget.name ?? "Unknown Resident", 
-                hostel: widget.hostelType ?? "Unknown", 
-                description: optionalInfo,
-                recipientName: "Warden", // ✅ Added required parameter
-              );
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sending SOS Alert..."), backgroundColor: Colors.red));
+              try {
+                await SosService.triggerSos(
+                  name: widget.name ?? "Unknown Resident", 
+                  hostel: widget.hostelType ?? "Unknown", 
+                  description: (optionalInfo == null || optionalInfo!.isEmpty) ? "SOS from Maintenance Panel" : optionalInfo,
+                  recipientName: "Warden", 
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Emergency Alert Sent to Warden!"), backgroundColor: Colors.green));
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send SOS: $e"), backgroundColor: Colors.orange));
+                }
+              }
             },
-            child: const Text("SEND SOS"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text("SEND SOS NOW"),
           ),
         ],
       ),
@@ -172,7 +183,6 @@ class _IssueListScreenState extends State<IssueListScreen> {
 
     return Column(
       children: [
-        if ((widget.role ?? 'student') == 'student') _buildHousekeepingStatusCard(),
         _buildFilters(),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
@@ -196,194 +206,6 @@ class _IssueListScreenState extends State<IssueListScreen> {
       ],
     );
   }
-
-  Widget _buildHousekeepingStatusCard() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const SizedBox();
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: HousekeepingService().getLatestEventStream(widget.hostelType ?? 'boys'),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox();
-
-        final doc = snapshot.data!.docs.first;
-        final data = doc.data() as Map<String, dynamic>;
-        
-        bool isActive = data['status'] == 'active';
-        Map<String, dynamic> ratings = data['ratings'] ?? {};
-        bool hasRated = ratings.containsKey(uid);
-        
-        if (isActive && !hasRated) {
-          // STATE A: Action Required
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.cyan.shade50, Colors.teal.shade50]),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.teal.shade300, width: 1.5),
-              boxShadow: [BoxShadow(color: Colors.teal.withOpacity(0.1), blurRadius: 10, spreadRadius: 2)],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.cleaning_services_rounded, color: Colors.teal, size: 28),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text("Housekeeping & Hygiene", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal)),
-                      ),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.8, end: 1.0),
-                        duration: const Duration(milliseconds: 800),
-                        curve: Curves.easeInOut,
-                        builder: (context, val, child) => Transform.scale(
-                          scale: val,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(12)),
-                            child: const Text("NEW LOG", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(data['description'] ?? "Full Corridor & Washroom Wash", style: TextStyle(color: Colors.teal.shade900, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 15),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showRatingBottomSheet(doc.id, uid),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      icon: const Icon(Icons.star_rate_rounded, color: Colors.white),
-                      label: const Text("Rate Today's Cleaning", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        } else {
-          // STATE B: Completed/Idle
-          String dateString = data['cleaningDate'] != null 
-              ? (data['cleaningDate'] as Timestamp).toDate().toString().substring(0, 10)
-              : "Unknown Date";
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle),
-                    child: const Icon(Icons.check_circle_outline, color: Colors.green),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("Everything looks clean! ✨", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                        const SizedBox(height: 4),
-                        Text("Last Cleaning Date: $dateString", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {}, 
-                    child: const Text("History", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  )
-                ],
-              ),
-            ),
-          );
-        }
-      },
-    );
-  }
-
-  void _showRatingBottomSheet(String eventId, String uid) {
-    double roomRating = 0;
-    double bathRating = 0;
-    bool isSubmitting = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Rate Hostel Hygiene", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              
-              const Text("Room Hygiene", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 8),
-              RatingBar.builder(
-                initialRating: 0, minRating: 1, direction: Axis.horizontal, itemCount: 5,
-                itemBuilder: (context, _) => const Icon(Icons.star_rounded, color: Colors.amber),
-                onRatingUpdate: (rating) => roomRating = rating,
-              ),
-              const SizedBox(height: 20),
-              
-              const Text("Washroom/Area Hygiene", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 8),
-              RatingBar.builder(
-                initialRating: 0, minRating: 1, direction: Axis.horizontal, itemCount: 5,
-                itemBuilder: (context, _) => const Icon(Icons.star_rounded, color: Colors.amber),
-                onRatingUpdate: (rating) => bathRating = rating,
-              ),
-              
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isSubmitting ? null : () async {
-                    if (roomRating == 0 || bathRating == 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please provide both ratings")));
-                      return;
-                    }
-                    setSheetState(() => isSubmitting = true);
-                    try {
-                      await HousekeepingService().submitFeedback(
-                        eventId: eventId,
-                        uid: uid, 
-                        roomRating: roomRating.toInt(), 
-                        bathroomRating: bathRating.toInt()
-                      );
-                      if (context.mounted) Navigator.pop(context);
-                    } catch (e) {
-                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-                    } finally {
-                      if (context.mounted) setSheetState(() => isSubmitting = false);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                  child: isSubmitting 
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                      : const Text("SUBMIT RATINGS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildFilters() {
     return Padding(
       padding: const EdgeInsets.all(12.0),
@@ -426,7 +248,7 @@ class _IssueListScreenState extends State<IssueListScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: ListTile(
         title: Text(issue['title'] ?? 'No Title'),
-        subtitle: Text("${issue['description']}\nRoom: ${issue['roomNo']}"),
+        subtitle: Text("${issue['description']}\nRoom: ${issue.containsKey('roomNo') ? issue['roomNo'] : 'N/A'}"),
         trailing: (widget.role ?? 'student') != 'student' 
           ? PopupMenuButton<String>(
               onSelected: (val) => _updateStatus(docId, val),

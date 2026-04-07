@@ -4,7 +4,8 @@ import '../../services/parcel_service.dart';
 
 class WardenParcelEntryScreen extends StatefulWidget {
   final String hostelType;
-  const WardenParcelEntryScreen({super.key, required this.hostelType});
+  final String? role;
+  const WardenParcelEntryScreen({super.key, required this.hostelType, this.role});
 
   @override
   State<WardenParcelEntryScreen> createState() => _WardenParcelEntryScreenState();
@@ -33,15 +34,18 @@ class _WardenParcelEntryScreenState extends State<WardenParcelEntryScreen> {
   }
 
   Future<void> _fetchStudents() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('role', isEqualTo: 'student')
-        .where('hostelType', isEqualTo: widget.hostelType.toLowerCase())
-        .get();
+    Query query = FirebaseFirestore.instance.collection('users').where('role', isEqualTo: 'student');
+    if (widget.role != 'head_admin') {
+      query = query.where('hostelType', isEqualTo: widget.hostelType.toLowerCase());
+    }
+    final snapshot = await query.get();
 
     if (mounted) {
       setState(() {
-        _students = snapshot.docs.map((doc) => {'uid': doc.id, ...doc.data()}).toList();
+        _students = snapshot.docs.map((doc) {
+  final data = doc.data() as Map<String, dynamic>;
+  return {'uid': doc.id, ...data};
+}).toList();
         _isLoadingStudents = false;
       });
     }
@@ -185,7 +189,7 @@ class _WardenParcelEntryScreenState extends State<WardenParcelEntryScreen> {
         label: const Text("Notify Student", style: TextStyle(color: Colors.white)),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: ParcelService().getWardenParcelsStream(widget.hostelType),
+        stream: ParcelService().getWardenParcelsStream(widget.hostelType, role: widget.role),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

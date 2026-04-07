@@ -4,7 +4,8 @@ import 'package:intl/intl.dart';
 
 class LeaveManagementScreen extends StatelessWidget {
   final String hostelType;
-  const LeaveManagementScreen({super.key, required this.hostelType});
+  final String? role;
+  const LeaveManagementScreen({super.key, required this.hostelType, this.role});
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +38,10 @@ class LeaveManagementScreen extends StatelessWidget {
   }
 
   Widget _buildLeaveList({required bool isHistory}) {
-    Query query = FirebaseFirestore.instance
-        .collection('leave_applications')
-        .where('hostelType', isEqualTo: hostelType);
+    Query query = FirebaseFirestore.instance.collection('leave_applications');
+    if (role != 'head_admin') {
+      query = query.where('hostelType', isEqualTo: hostelType);
+    }
 
     // Apply Filter based on Tab
     if (isHistory) {

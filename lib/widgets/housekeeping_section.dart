@@ -4,16 +4,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class HousekeepingSection extends StatelessWidget {
-  const HousekeepingSection({super.key});
+  final String hostelType;
+  const HousekeepingSection({super.key, required this.hostelType});
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
     return StreamBuilder<QuerySnapshot>(
-      // 📡 Listen for the LATEST cleaning event for the entire hostel
+      // 📡 Listen for the LATEST cleaning event for the specific hostel
       stream: FirebaseFirestore.instance
           .collection('housekeeping_events')
+          .where('hostelType', isEqualTo: hostelType)
           .orderBy('cleaningDate', descending: true)
           .limit(1)
           .snapshots(),
@@ -43,11 +45,11 @@ class HousekeepingSection extends StatelessWidget {
   // The "Alert" version of the card
   Widget _buildActionCard(BuildContext context, String eventId, String? desc) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.teal.shade50,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12.0),
         border: Border.all(color: Colors.teal.shade200, width: 2),
       ),
       child: Column(
@@ -79,10 +81,10 @@ class HousekeepingSection extends StatelessWidget {
   // The "Normal" version of the card
   Widget _buildStaticCard(String message) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      margin: const EdgeInsets.only(bottom: 20),
       elevation: 0,
       color: Colors.grey.shade100,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: ListTile(
         leading: const Icon(Icons.done_all, color: Colors.green),
         title: Text(message, style: const TextStyle(fontSize: 13, color: Colors.black87)),

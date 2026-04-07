@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  intl: ^0.19.0
+  intl: ^0.20.2
   
   # --- Core Firebase ---
   firebase_core: ^3.10.1
@@ -30,6 +30,7 @@ dependencies:
   url_launcher: ^6.3.1
   image_picker: ^1.2.1
   flutter_rating_bar: ^4.0.1
+  google_fonts: ^8.0.2
 
 dev_dependencies:
   flutter_test:
