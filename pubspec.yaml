@@ -42,5 +42,5 @@ flutter:
 
   # 🚨 IMPORTANT: Indentation is critical here. 
   # Ensure there are 2 spaces before 'assets' and 4 spaces before the '-'
-  assets:
-    - assets/service-account.json
+  #assets:
+    #- assets/service-account.json

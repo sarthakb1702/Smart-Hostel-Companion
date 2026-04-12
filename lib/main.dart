@@ -10,6 +10,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/dashboards/role_handler.dart';
 import 'screens/student/student_dashboard.dart';
+import 'screens/student/guest_entry_screen.dart';
 import 'utils/app_theme.dart';
 
 // --- BACKGROUND NOTIFICATION HANDLER ---
@@ -137,6 +138,8 @@ class _MyAppState extends State<MyApp> {
         '/signup': (context) => const SignUpScreen(),
         '/home': (context) => const RoleHandler(),
         '/student_dashboard': (context) => const StudentDashboard(),
+        '/guest_entry': (context) => const GuestEntryScreen(),
+        
       },
     );
   }

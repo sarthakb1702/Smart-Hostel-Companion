@@ -14,6 +14,7 @@ import 'warden_alerts_management_screen.dart';
 import 'warden_parcel_entry_screen.dart';
 import 'warden_housekeeping_screen.dart';
 import 'gate_pass_history_screen.dart';
+import 'guest_requests_screen.dart';
 
 class WardenDashboard extends StatefulWidget {
   final String? role;
@@ -115,7 +116,13 @@ class _WardenDashboardState extends State<WardenDashboard> {
 
                   _navCard(context, "SOS Logs", Icons.history_toggle_off, Colors.red, 
                     SosHistoryScreen(hostelType: widget.hostelType ?? 'boys', role: widget.role)),
-
+                 _navCard(
+  context,
+  "Guest Requests",
+  Icons.person,
+  Colors.orange,
+  const GuestRequestsScreen(),
+),
                   _navCard(context, "Hostel Alerts", Icons.campaign_rounded, Colors.purple, 
                     WardenAlertsManagementScreen(hostelType: widget.hostelType ?? 'boys', role: widget.role)),
 

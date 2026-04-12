@@ -18,6 +18,8 @@ import '../profile/student_profile_tab.dart';
 import 'student_alerts_tab.dart';
 import '../../widgets/housekeeping_section.dart';
 import 'gate_pass_screen.dart';
+import 'guest_entry_screen.dart';
+import 'guest_history_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -42,6 +44,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text("Cancel"),
             ),
+            ElevatedButton(
+  onPressed: () {
+    Navigator.pushNamed(context, '/guest_entry');
+  },
+  child: Text("Guest Entry"),
+),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
               child: const Text("Logout"),
@@ -266,7 +274,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Colors.orange, 
                   destination: IssueListScreen(role: 'student', hostelType: hostelType, name: name),
                 ),
-                
+               
                 _navCard(
                   context, 
                   "Housekeeping", 
@@ -282,6 +290,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Colors.green, 
                   destination: const MyLeavesScreen(),
                 ),
+               _navCard(
+  context, 
+  "Guest Entry", 
+  Icons.person_add, 
+  Colors.blue, 
+  destination: const GuestEntryScreen(),
+),
                 
                 // 📦 PARCELS STREAM CARD
                 StreamBuilder<QuerySnapshot>(
